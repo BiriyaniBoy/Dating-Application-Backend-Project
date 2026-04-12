@@ -1,0 +1,44 @@
+i have a project name Dating-Application-Backend-Project i have use node.js and express backend frame work and i have use mongodb database for store data .
+i have below give you all the details about my project . here i have use Refresh Token Rotation for authantication i give you below the login api 
+and register api respone will be same sign in api body email and password , registr api body name , email and password , i have use soem package for 
+this project menation below give me a industry standard code and folder structure for this project in this project i have use image upload and video upload also .
+this is mobile application backend project . give me all apis with proper validation and error handling and industry standard code and folder structure . and also give me 
+proper documentation for this project .
+
+
+{
+    "success": true,
+    "data": {
+        "user": {
+            "_id": "694541adeb3bf8e7a16fcf5c",
+            "email": "test@example.com",
+            "name": "test bhai",
+            "role": "user",
+            "isActive": true,
+            "id": "d9dd5b88-7bd6-463a-a9eb-f2c26461939b",
+            "createdAt": "2025-12-19T12:14:37.198Z",
+            "updatedAt": "2025-12-22T20:01:56.056Z"
+        },
+        "tokens": {
+            "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkOWRkNWI4OC03YmQ2LTQ2M2EtYTllYi1mMmMyNjQ2MTkzOWIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImlhdCI6MTc2NjQzMzcxNSwiZXhwIjoxNzY2NDM0MDE1LCJhdWQiOiJzcGVhay1zeW5jLWFwaSIsImlzcyI6InNwZWFrLXN5bmMtZ2F0ZXdheSJ9.fn9sB4eachOvoGg2cA2jFfo5oNLRbmbuINKXPhO4rdQ",
+            "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkOWRkNWI4OC03YmQ2LTQ2M2EtYTllYi1mMmMyNjQ2MTkzOWIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImlhdCI6MTc2NjQzMzcxNSwiZXhwIjoxNzY2NDM0NjE1LCJhdWQiOiJzcGVhay1zeW5jLWFwaSIsImlzcyI6InNwZWFrLXN5bmMtZ2F0ZXdheSJ9.NJOVfcX_2Nz6QBEw0EJX8pty9rLX9NMR09ug0rDIgXs"
+        }
+    }
+}
+
+MONGO_URI=mongodb+srv://atlasoneno1_db_user:dSNbrQuUT5JOV362@cluster0.lsakmpn.mongodb.net/Dating-Application-Backend-Project
+JWT_ACCESS_SECRET=e4659ee25e2933ae469d3f3bd90a56f789f4b2d8730741c8b1877fbd
+JWT_REFRESH_SECRET=e4659ee25e2933ae469d3f3bd90a56f789f4b2d8730741c8b1877fbd
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
+CLOUDINARY_CLOUD_NAME=xxx
+CLOUDINARY_API_KEY=xxx
+CLOUDINARY_API_SECRET=xxx
+
+   "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.2.4"

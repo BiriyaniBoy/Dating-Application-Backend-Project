@@ -1,0 +1,41 @@
+# Refresh Token Rotation Implementation Plan
+
+This plan outlines the addition of the Refresh Token endpoint to allow users to get a new Access Token without re-logging, while maintaining security through Token Rotation.
+
+## Proposed Changes
+
+### [MODIFY] [auth.controller.js](file:///c:/BackendProjects/Dating-Application-Backend-Project/src/controllers/auth.controller.js)
+
+1.  **`refreshAccessToken`**:
+    - Extract the refresh token from cookies or the request body.
+    - Verify the token using `jwt.verify` (Refresh Secret).
+    - Find the user by ID from the decoded token.
+    - **Rotation Check**: Compare the incoming refresh token with the `refreshToken` stored in the database. If they don't match, it might be a reuse attempt (throw 401).
+    - If valid, generate a **new** Access Token and a **new** Refresh Token (`generateAccessAndRefreshTokens`).
+    - Clear the old tokens and set the new ones in response.
+
+2.  **`logoutUser`**:
+    - Find the user currently logged in (via `verifyJWT` middleware).
+    - Remove the `refreshToken` from the user document in the database (set to undefined).
+    - Clear cookies (`accessToken`, `refreshToken`).
+
+### [MODIFY] [auth.routes.js](file:///c:/BackendProjects/Dating-Application-Backend-Project/src/routes/auth.routes.js)
+
+- Add `POST /refresh-token` (Unsecured - but validates the refresh token itself).
+- Add `POST /logout` (Secured - requires `verifyJWT`).
+
+## How Refresh Token Rotation works in this project:
+
+1.  **Login/Register**: User receives `accessToken` (short-lived) and `refreshToken` (long-lived).
+2.  **Expiration**: When `accessToken` expires, the mobile app sends the `refreshToken` to `/api/v1/auth/refresh-token`.
+3.  **Validation**: The server checks if the `refreshToken` matches the one in the DB.
+4.  **Rotation**: The server generates a **brand new** `refreshToken`, saves it to the DB (invalidating the old one), and returns it along with a new `accessToken`.
+5.  **Security**: If a stolen refresh token is used after the real user has already rotated their token, the "Rotation Check" will fail because the DB token has changed, allowing the server to suspect a breach.
+
+## Verification Plan
+
+### Manual Verification
+- Log in and get tokens.
+- Call `/refresh-token` with the refresh token and verify you receive a **different** refresh token back.
+- Try to use the old refresh token again; it should fail.
+- Log out and verify the `refreshToken` is removed from the database for that user.
