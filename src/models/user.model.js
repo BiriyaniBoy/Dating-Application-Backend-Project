@@ -32,6 +32,39 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    photos: {
+      type: [String],
+      validate: {
+        validator: function (v) {
+          return v == null || v.length >= 4;
+        },
+        message: "A minimum of 4 photos is required",
+      },
+    },
+    universityName: {
+      type: String,
+    },
+    latitude: {
+      type: String,
+    },
+    longitude: {
+      type: String,
+    },
+    passions: {
+      type: [String],
+    },
+    fitnessLevel: {
+      type: String,
+    },
+    drinks: {
+      type: String,
+    },
+    smokingHabits: {
+      type: String,
+    },
+    verificationImage: {
+      type: String,
+    },
   },
   {
     timestamps: true,

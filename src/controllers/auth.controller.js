@@ -21,7 +21,20 @@ const generateAccessAndRefreshTokens = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const {
+    name,
+    email,
+    password,
+    photos,
+    universityName,
+    latitude,
+    longitude,
+    passions,
+    fitnessLevel,
+    drinks,
+    smokingHabits,
+    verificationImage,
+  } = req.body;
 
   if ([name, email, password].some((field) => String(field).trim() === "")) {
     throw new ApiError(400, "All fields are required");
@@ -37,6 +50,15 @@ const registerUser = asyncHandler(async (req, res) => {
     name,
     email,
     password,
+    photos,
+    universityName,
+    latitude,
+    longitude,
+    passions,
+    fitnessLevel,
+    drinks,
+    smokingHabits,
+    verificationImage,
   });
 
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
@@ -226,4 +248,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, uploadImage, uploadVideo, logoutUser, refreshAccessToken };
+const getMyProfile = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User profile fetched successfully"));
+});
+
+export { registerUser, loginUser, uploadImage, uploadVideo, logoutUser, refreshAccessToken, getMyProfile };
