@@ -42,7 +42,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
         comment.isLiked = reactionMap[comment._id.toString()] === "like";
         comment.isDisliked = reactionMap[comment._id.toString()] === "dislike";
         comment.replies = [];
-        
+
         commentsMap[comment._id.toString()] = comment;
     });
 
@@ -67,4 +67,66 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }, "User profile and comments fetched successfully"));
 });
 
-export { getUserProfile };
+const getAllUserProfiles = asyncHandler(async (req, res) => {
+    // 1. Get the current user ID from req.user
+    const currentUserId = req.user._id;
+
+    // 2. Add the $ne filter to the query
+    const users = await User.find({
+        isActive: true,
+        _id: { $ne: currentUserId } // This excludes "me" from the list
+    })
+        .select("-password -refreshToken")
+        .sort({ createdAt: -1 })
+        .lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, users, "All user profiles fetched successfully")
+    );
+});
+
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+
+    // In a strict PUT, you might not filter fields, 
+    // but for security, we keep the allowed list.
+    const allowedUpdates = [
+        "name", "photos", "universityName", "latitude", "longitude",
+        "passions", "fitnessLevel", "drinks", "smokingHabits", "verificationImage"
+    ];
+
+    const updates = {};
+
+    // Logic: Map the allowed fields. 
+    // If a field is missing in req.body, you might want to set it to null/empty 
+    // depending on how strict you want the PUT to be.
+    allowedUpdates.forEach((key) => {
+        if (req.body[key] !== undefined) {
+            updates[key] = req.body[key];
+        }
+    });
+
+    if (Object.keys(updates).length === 0) {
+        throw new ApiError(400, "No fields provided for update");
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updates }, // Replaces the specific fields provided
+        {
+            new: true,
+            runValidators: true,
+            overwrite: false // Set to true only if you want to wipe the whole document (dangerous!)
+        }
+    ).select("-password -refreshToken");
+
+    if (!updatedUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedUser, "User profile updated successfully via PUT")
+    );
+});
+
+export { getUserProfile, getAllUserProfiles, updateUserProfile };

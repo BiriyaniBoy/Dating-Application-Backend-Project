@@ -1,11 +1,23 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { getUserProfile } from "../controllers/user.controller.js";
+import {
+    getUserProfile,
+    getAllUserProfiles,
+    updateUserProfile
+} from "../controllers/user.controller.js";
 
 const router = Router();
 
+// Apply JWT verification to all routes below
 router.use(verifyJWT);
 
+// Route to get all active user profiles
+router.route("/profiles").get(getAllUserProfiles);
+
+// Route to update own profile using PUT (Full Replacement)
+router.route("/edit-profile").put(updateUserProfile);
+
+// Route to get a specific user's profile and comments
 router.route("/:userId/profile").get(getUserProfile);
 
 export default router;
