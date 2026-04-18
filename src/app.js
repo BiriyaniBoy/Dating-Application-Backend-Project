@@ -21,6 +21,7 @@ import authRouter from "./routes/auth.routes.js";
 import userRouter from "./routes/user.routes.js";
 import uploadRouter from "./routes/upload.routes.js";
 import commentRouter from "./routes/comment.routes.js";
+import interactionRouter from "./routes/interaction.routes.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 
 // Routes declaration
@@ -28,6 +29,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1", uploadRouter);
 app.use("/api/v1/comments", commentRouter);
+app.use("/api/v1/interactions", interactionRouter);
 
 // Common error handler
 app.use(errorHandler);

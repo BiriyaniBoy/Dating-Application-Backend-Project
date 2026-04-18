@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { CommentReaction } from "../models/comment.reaction.model.js";
+import { Interaction } from "../models/interaction.model.js";
 
 const getUserProfile = asyncHandler(async (req, res) => {
     const { userId } = req.params;
@@ -80,8 +81,26 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
+    // 3. Get interactions for the mapping
+    const interactions = await Interaction.find({ actor: currentUserId }).lean();
+    const interactionMap = {};
+    interactions.forEach(i => {
+        interactionMap[i.target.toString()] = i.action;
+    });
+
+    // 4. Attach status to each user
+    const usersWithStatus = users.map(user => {
+        const action = interactionMap[user._id.toString()];
+        return {
+            ...user,
+            interactionStatus: action || null,
+            isAccepted: action === "accept",
+            isRejected: action === "reject"
+        };
+    });
+
     return res.status(200).json(
-        new ApiResponse(200, users, "All user profiles fetched successfully")
+        new ApiResponse(200, usersWithStatus, "All user profiles fetched successfully")
     );
 });
 
@@ -129,4 +148,42 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     );
 });
 
-export { getUserProfile, getAllUserProfiles, updateUserProfile };
+const getAcceptedProfiles = asyncHandler(async (req, res) => {
+    const currentUserId = req.user._id;
+
+    const acceptedInteractions = await Interaction.find({ actor: currentUserId, action: "accept" }).lean();
+    const acceptedTargetIds = acceptedInteractions.map(i => i.target);
+
+    const acceptedUsers = await User.find({
+        _id: { $in: acceptedTargetIds },
+        isActive: true
+    }).select("-password -refreshToken").lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, acceptedUsers, "Accepted user profiles fetched successfully")
+    );
+});
+
+const getRejectedProfiles = asyncHandler(async (req, res) => {
+    const currentUserId = req.user._id;
+
+    const rejectedInteractions = await Interaction.find({ actor: currentUserId, action: "reject" }).lean();
+    const rejectedTargetIds = rejectedInteractions.map(i => i.target);
+
+    const rejectedUsers = await User.find({
+        _id: { $in: rejectedTargetIds },
+        isActive: true
+    }).select("-password -refreshToken").lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, rejectedUsers, "Rejected user profiles fetched successfully")
+    );
+});
+
+export { 
+    getUserProfile, 
+    getAllUserProfiles, 
+    updateUserProfile,
+    getAcceptedProfiles,
+    getRejectedProfiles
+};

@@ -3,7 +3,9 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 import {
     getUserProfile,
     getAllUserProfiles,
-    updateUserProfile
+    updateUserProfile,
+    getAcceptedProfiles,
+    getRejectedProfiles
 } from "../controllers/user.controller.js";
 
 const router = Router();
@@ -13,6 +15,12 @@ router.use(verifyJWT);
 
 // Route to get all active user profiles
 router.route("/profiles").get(getAllUserProfiles);
+
+// Route to get all accepted users
+router.route("/accepted").get(getAcceptedProfiles);
+
+// Route to get all rejected users
+router.route("/rejected").get(getRejectedProfiles);
 
 // Route to update own profile using PUT (Full Replacement)
 router.route("/edit-profile").put(updateUserProfile);
