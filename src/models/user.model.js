@@ -65,6 +65,15 @@ const userSchema = new Schema(
     verificationImage: {
       type: String,
     },
+    subscriptionType: {
+      type: String,
+      enum: ["none", "gold", "platinum"],
+      default: "none",
+    },
+    subscriptionExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

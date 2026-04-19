@@ -6,6 +6,17 @@ import { Comment } from "../models/comment.model.js";
 import { CommentReaction } from "../models/comment.reaction.model.js";
 import { Interaction } from "../models/interaction.model.js";
 
+const mapSubscriptionStatus = (user) => {
+    if (!user) return user;
+    const isSubscription = user.subscriptionExpiry ? (new Date(user.subscriptionExpiry) > new Date()) : false;
+    const _user = user.toObject ? user.toObject() : user;
+    return {
+        ..._user,
+        isSubscription,
+        subscriptionType: isSubscription ? _user.subscriptionType : "none"
+    };
+};
+
 const getUserProfile = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
@@ -63,7 +74,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
     });
 
     return res.status(200).json(new ApiResponse(200, {
-        user,
+        user: mapSubscriptionStatus(user),
         comments: rootComments
     }, "User profile and comments fetched successfully"));
 });
@@ -91,8 +102,9 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
     // 4. Attach status to each user
     const usersWithStatus = users.map(user => {
         const action = interactionMap[user._id.toString()];
+        const subDecorated = mapSubscriptionStatus(user);
         return {
-            ...user,
+            ...subDecorated,
             interactionStatus: action || null,
             isAccepted: action === "accept",
             isRejected: action === "reject"
@@ -144,7 +156,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(
-        new ApiResponse(200, updatedUser, "User profile updated successfully via PUT")
+        new ApiResponse(200, mapSubscriptionStatus(updatedUser), "User profile updated successfully via PUT")
     );
 });
 
@@ -160,7 +172,7 @@ const getAcceptedProfiles = asyncHandler(async (req, res) => {
     }).select("-password -refreshToken").lean();
 
     return res.status(200).json(
-        new ApiResponse(200, acceptedUsers, "Accepted user profiles fetched successfully")
+        new ApiResponse(200, acceptedUsers.map(mapSubscriptionStatus), "Accepted user profiles fetched successfully")
     );
 });
 
@@ -176,7 +188,7 @@ const getRejectedProfiles = asyncHandler(async (req, res) => {
     }).select("-password -refreshToken").lean();
 
     return res.status(200).json(
-        new ApiResponse(200, rejectedUsers, "Rejected user profiles fetched successfully")
+        new ApiResponse(200, rejectedUsers.map(mapSubscriptionStatus), "Rejected user profiles fetched successfully")
     );
 });
 
