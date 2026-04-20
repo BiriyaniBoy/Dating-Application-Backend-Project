@@ -93,7 +93,7 @@ const reactToComment = asyncHandler(async (req, res) => {
     const reaction = await CommentReaction.findOneAndUpdate(
         { user: req.user._id, comment: commentId },
         { type },
-        { new: true, upsert: true }
+        { returnDocument: "after", upsert: true }
     );
 
     return res.status(200).json(new ApiResponse(200, reaction, `Comment ${type}d successfully`));

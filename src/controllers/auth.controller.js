@@ -25,6 +25,8 @@ const registerUser = asyncHandler(async (req, res) => {
     name,
     email,
     password,
+    gender,
+    interestedIn,
     photos,
     universityName,
     latitude,
@@ -37,7 +39,15 @@ const registerUser = asyncHandler(async (req, res) => {
   } = req.body;
 
   if ([name, email, password].some((field) => String(field).trim() === "")) {
-    throw new ApiError(400, "All fields are required");
+    throw new ApiError(400, "Name, email and password are required");
+  }
+
+  const VALID_GENDERS = ["male", "female", "others"];
+  if (!gender || !VALID_GENDERS.includes(gender.toLowerCase())) {
+    throw new ApiError(400, "Gender is required. Choose: male, female, or others");
+  }
+  if (!interestedIn || !VALID_GENDERS.includes(interestedIn.toLowerCase())) {
+    throw new ApiError(400, "Interested gender is required. Choose: male, female, or others");
   }
 
   const existedUser = await User.findOne({ email });
@@ -50,6 +60,8 @@ const registerUser = asyncHandler(async (req, res) => {
     name,
     email,
     password,
+    gender: gender.toLowerCase(),
+    interestedIn: interestedIn.toLowerCase(),
     photos,
     universityName,
     latitude,
@@ -186,7 +198,7 @@ const logoutUser = asyncHandler(async (req, res) => {
       },
     },
     {
-      new: true,
+      returnDocument: "after",
     }
   );
 
@@ -203,7 +215,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken = req.body.refreshToken || req.cookies?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "unauthorized request");
@@ -249,9 +261,29 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const getMyProfile = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const userData = user.toObject ? user.toObject() : user;
+
+  // Dynamically compute subscription status
+  const isSubscription = userData.subscriptionExpiry
+    ? new Date(userData.subscriptionExpiry) > new Date()
+    : false;
+
+  const profileData = {
+    ...userData,
+    isSubscription,
+    subscriptionType: isSubscription ? userData.subscriptionType : "none",
+    gender: userData.gender,
+    interestedIn: userData.interestedIn
+  };
+
+  // Remove sensitive fields
+  delete profileData.password;
+  delete profileData.refreshToken;
+
   return res
     .status(200)
-    .json(new ApiResponse(200, req.user, "User profile fetched successfully"));
+    .json(new ApiResponse(200, profileData, "User profile fetched successfully"));
 });
 
 export { registerUser, loginUser, uploadImage, uploadVideo, logoutUser, refreshAccessToken, getMyProfile };

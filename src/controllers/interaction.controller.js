@@ -26,7 +26,7 @@ const interactWithUserProfile = asyncHandler(async (req, res) => {
     const interaction = await Interaction.findOneAndUpdate(
         { actor: actorId, target: targetUserId },
         { action },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 
     // Optional: check if there's a mutual 'accept' (a match) to return status back

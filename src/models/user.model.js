@@ -32,6 +32,16 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    gender: {
+      type: String,
+      enum: ["male", "female", "others"],
+      required: [true, "Gender is required"],
+    },
+    interestedIn: {
+      type: String,
+      enum: ["male", "female", "others"],
+      required: [true, "Interested gender is required"],
+    },
     photos: {
       type: [String],
       validate: {

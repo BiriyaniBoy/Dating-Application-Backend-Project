@@ -81,26 +81,40 @@ const getUserProfile = asyncHandler(async (req, res) => {
 });
 
 const getAllUserProfiles = asyncHandler(async (req, res) => {
-    // 1. Get the current user ID from req.user
     const currentUserId = req.user._id;
+    const currentUser = req.user;
 
-    // 2. Add the $ne filter to the query
-    const users = await User.find({
+    // Normalize what the current user is interested in
+    const interestedIn = currentUser?.interestedIn?.toLowerCase();
+
+    // Explicitly build the query object to prevent Mongoose from dropping undefined fields
+    const query = {
         isActive: true,
-        _id: { $ne: currentUserId } // This excludes "me" from the list
-    })
+        _id: { $ne: currentUserId }
+    };
+
+    if (interestedIn === "male" || interestedIn === "female") {
+        // Strict Match: Only show this precise gender
+        query.gender = interestedIn;
+    } else {
+        // "others" or undefined (like for old grandfathered accounts)
+        // Show all profiles that have a valid configured gender
+        query.gender = { $in: ["male", "female", "others"] };
+    }
+
+    const users = await User.find(query)
         .select("-password -refreshToken")
         .sort({ createdAt: -1 })
         .lean();
 
-    // 3. Get interactions for the mapping
+    // Get interactions for the mapping
     const interactions = await Interaction.find({ actor: currentUserId }).lean();
     const interactionMap = {};
     interactions.forEach(i => {
         interactionMap[i.target.toString()] = i.action;
     });
 
-    // 4. Attach status to each user
+    // Attach subscription status + interaction status to each profile
     const usersWithStatus = users.map(user => {
         const action = interactionMap[user._id.toString()];
         const subDecorated = mapSubscriptionStatus(user);
@@ -124,7 +138,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     // but for security, we keep the allowed list.
     const allowedUpdates = [
         "name", "photos", "universityName", "latitude", "longitude",
-        "passions", "fitnessLevel", "drinks", "smokingHabits", "verificationImage"
+        "passions", "fitnessLevel", "drinks", "smokingHabits", "verificationImage",
+        "gender", "interestedIn"
     ];
 
     const updates = {};
@@ -146,7 +161,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         userId,
         { $set: updates }, // Replaces the specific fields provided
         {
-            new: true,
+            returnDocument: "after",
             runValidators: true,
             overwrite: false // Set to true only if you want to wipe the whole document (dangerous!)
         }
