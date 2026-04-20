@@ -5,7 +5,8 @@ import {
     getAllUserProfiles,
     updateUserProfile,
     getAcceptedProfiles,
-    getRejectedProfiles
+    getRejectedProfiles,
+    deletePhoto
 } from "../controllers/user.controller.js";
 
 const router = Router();
@@ -27,5 +28,9 @@ router.route("/edit-profile").put(updateUserProfile);
 
 // Route to get a specific user's profile and comments
 router.route("/:userId/profile").get(getUserProfile);
+
+// Route to delete a photo from the current user's profile (also removes from Cloudinary)
+// Body: { "photoUrl": "https://res.cloudinary.com/..." }
+router.route("/photo/delete").delete(deletePhoto);
 
 export default router;

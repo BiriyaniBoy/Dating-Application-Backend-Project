@@ -5,6 +5,7 @@ import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { CommentReaction } from "../models/comment.reaction.model.js";
 import { Interaction } from "../models/interaction.model.js";
+import { deleteFromCloudinary } from "../utils/cloudinaryUtils.js";
 
 const mapSubscriptionStatus = (user) => {
     if (!user) return user;
@@ -192,10 +193,51 @@ const getRejectedProfiles = asyncHandler(async (req, res) => {
     );
 });
 
+const deletePhoto = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const { photoUrl } = req.body;
+
+    if (!photoUrl) {
+        throw new ApiError(400, "photoUrl is required in the request body.");
+    }
+
+    // Fetch the user and their current photos
+    const user = await User.findById(userId);
+    if (!user) throw new ApiError(404, "User not found.");
+
+    const currentPhotos = user.photos || [];
+
+    // Check the photo actually belongs to this user
+    if (!currentPhotos.includes(photoUrl)) {
+        throw new ApiError(404, "Photo not found in your profile.");
+    }
+
+    // Enforce minimum: must keep at least 4 photos after deletion
+    if (currentPhotos.length <= 4) {
+        throw new ApiError(400, "Cannot delete photo. You must have a minimum of 4 photos at all times.");
+    }
+
+    // Delete the image from Cloudinary first
+    const cloudinaryResult = await deleteFromCloudinary(photoUrl);
+    if (!cloudinaryResult || cloudinaryResult.result !== "ok") {
+        throw new ApiError(500, "Failed to delete image from Cloudinary. Please try again.");
+    }
+
+    // Remove the photo from the user's photos array in DB
+    const updatedPhotos = currentPhotos.filter(p => p !== photoUrl);
+    user.photos = updatedPhotos;
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(
+        new ApiResponse(200, { photos: user.photos }, "Photo deleted successfully.")
+    );
+});
+
 export { 
     getUserProfile, 
     getAllUserProfiles, 
     updateUserProfile,
     getAcceptedProfiles,
-    getRejectedProfiles
+    getRejectedProfiles,
+    deletePhoto
 };

@@ -36,9 +36,9 @@ const userSchema = new Schema(
       type: [String],
       validate: {
         validator: function (v) {
-          return v == null || v.length >= 4;
+          return v == null || (v.length >= 4 && v.length <= 9);
         },
-        message: "A minimum of 4 photos is required",
+        message: "Photos must be between 4 and 9.",
       },
     },
     universityName: {
