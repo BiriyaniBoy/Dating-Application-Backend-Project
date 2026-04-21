@@ -36,6 +36,10 @@ const registerUser = asyncHandler(async (req, res) => {
     drinks,
     smokingHabits,
     verificationImage,
+    age,
+    profession,
+    minAge,
+    maxAge,
   } = req.body;
 
   if ([name, email, password].some((field) => String(field).trim() === "")) {
@@ -71,6 +75,12 @@ const registerUser = asyncHandler(async (req, res) => {
     drinks,
     smokingHabits,
     verificationImage,
+    age,
+    profession,
+    agePreference: {
+      minAge: minAge || 18,
+      maxAge: maxAge || 100
+    }
   });
 
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
@@ -274,7 +284,10 @@ const getMyProfile = asyncHandler(async (req, res) => {
     isSubscription,
     subscriptionType: isSubscription ? userData.subscriptionType : "none",
     gender: userData.gender,
-    interestedIn: userData.interestedIn
+    interestedIn: userData.interestedIn,
+    age: userData.age,
+    profession: userData.profession,
+    agePreference: userData.agePreference
   };
 
   // Remove sensitive fields

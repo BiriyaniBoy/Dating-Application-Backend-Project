@@ -102,9 +102,21 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
         query.gender = { $in: ["male", "female", "others"] };
     }
 
+    // Add age preference range filter
+    const minAge = currentUser?.agePreference?.minAge || 18;
+    const maxAge = currentUser?.agePreference?.maxAge || 100;
+    query.age = { $gte: minAge, $lte: maxAge };
+
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const users = await User.find(query)
         .select("-password -refreshToken")
         .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
         .lean();
 
     // Get interactions for the mapping
@@ -139,7 +151,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     const allowedUpdates = [
         "name", "photos", "universityName", "latitude", "longitude",
         "passions", "fitnessLevel", "drinks", "smokingHabits", "verificationImage",
-        "gender", "interestedIn"
+        "gender", "interestedIn", "age", "profession", "agePreference"
     ];
 
     const updates = {};

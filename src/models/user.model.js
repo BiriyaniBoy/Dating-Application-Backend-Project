@@ -42,6 +42,24 @@ const userSchema = new Schema(
       enum: ["male", "female", "others"],
       required: [true, "Interested gender is required"],
     },
+    age: {
+      type: Number,
+      required: [true, "Age is required"],
+      min: [18, "Must be at least 18 years old"]
+    },
+    profession: {
+      type: String
+    },
+    agePreference: {
+      minAge: {
+        type: Number,
+        default: 18
+      },
+      maxAge: {
+        type: Number,
+        default: 100
+      }
+    },
     photos: {
       type: [String],
       validate: {
@@ -89,6 +107,9 @@ const userSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Compound index for fast matchmaking queries
+userSchema.index({ gender: 1, age: 1 });
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;

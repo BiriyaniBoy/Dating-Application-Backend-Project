@@ -1,44 +1,48 @@
-i have a project name Dating-Application-Backend-Project i have use node.js and express backend frame work and i have use mongodb database for store data .
-i have below give you all the details about my project . here i have use Refresh Token Rotation for authantication i give you below the login api 
-and register api respone will be same sign in api body email and password , registr api body name , email and password , i have use soem package for 
-this project menation below give me a industry standard code and folder structure for this project in this project i have use image upload and video upload also .
-this is mobile application backend project . give me all apis with proper validation and error handling and industry standard code and folder structure . and also give me 
-proper documentation for this project .
+# Matchmaking Enhancements: Age Constraints & Pagination
 
+This document outlines the proposed implementation plan to upgrade the dating app's matchmaking engine. We will add `age`, `profession`, and `agePreference` to user profiles. Then, we will configure a fast compound index, scale the matching query logic to apply strict age bounds, and implement pagination for feed performance.
 
-{
-    "success": true,
-    "data": {
-        "user": {
-            "_id": "694541adeb3bf8e7a16fcf5c",
-            "email": "test@example.com",
-            "name": "test bhai",
-            "role": "user",
-            "isActive": true,
-            "id": "d9dd5b88-7bd6-463a-a9eb-f2c26461939b",
-            "createdAt": "2025-12-19T12:14:37.198Z",
-            "updatedAt": "2025-12-22T20:01:56.056Z"
-        },
-        "tokens": {
-            "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkOWRkNWI4OC03YmQ2LTQ2M2EtYTllYi1mMmMyNjQ2MTkzOWIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImlhdCI6MTc2NjQzMzcxNSwiZXhwIjoxNzY2NDM0MDE1LCJhdWQiOiJzcGVhay1zeW5jLWFwaSIsImlzcyI6InNwZWFrLXN5bmMtZ2F0ZXdheSJ9.fn9sB4eachOvoGg2cA2jFfo5oNLRbmbuINKXPhO4rdQ",
-            "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkOWRkNWI4OC03YmQ2LTQ2M2EtYTllYi1mMmMyNjQ2MTkzOWIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImlhdCI6MTc2NjQzMzcxNSwiZXhwIjoxNzY2NDM0NjE1LCJhdWQiOiJzcGVhay1zeW5jLWFwaSIsImlzcyI6InNwZWFrLXN5bmMtZ2F0ZXdheSJ9.NJOVfcX_2Nz6QBEw0EJX8pty9rLX9NMR09ug0rDIgXs"
-        }
-    }
-}
+## User Review Required
+> [!IMPORTANT]
+> - By default, users without an `age` or `agePreference` in the database will need to be handled gracefully. This plan restricts matches to strictly valid configurations, meaning older users without an explicitly set age might be excluded from the new feed unless they update their profile.
+> - The new `getAllUserProfiles` endpoint will now expect optional `?page=1&limit=10` query parameters in the URL for fetching older data to support infinite scrolling.
+> - Please approve if this strict matching logic fits your current production data strategy!
 
-MONGO_URI=mongodb+srv://atlasoneno1_db_user:dSNbrQuUT5JOV362@cluster0.lsakmpn.mongodb.net/Dating-Application-Backend-Project
-JWT_ACCESS_SECRET=e4659ee25e2933ae469d3f3bd90a56f789f4b2d8730741c8b1877fbd
-JWT_REFRESH_SECRET=e4659ee25e2933ae469d3f3bd90a56f789f4b2d8730741c8b1877fbd
-ACCESS_TOKEN_EXPIRY=15m
-REFRESH_TOKEN_EXPIRY=7d
-CLOUDINARY_CLOUD_NAME=xxx
-CLOUDINARY_API_KEY=xxx
-CLOUDINARY_API_SECRET=xxx
+## Proposed Changes
 
-   "bcryptjs": "^3.0.3",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.2.4"
+### Database Layer
+#### [MODIFY] `src/models/user.model.js`
+- Add `age` (Number, required) block.
+- Add `profession` (String).
+- Add `agePreference` (Nested Object with `minAge` and `maxAge` Numbers defaults).
+- Append a compound index at the schema level:
+  `userSchema.index({ gender: 1, age: 1 });`
+  This ensures optimal database traversals when the user filters by their `interestedIn` (mapped to `gender`) and a range of bounds (`minAge` <= `age` <= `maxAge`).
+
+### Controllers Layer
+#### [MODIFY] `src/controllers/auth.controller.js`
+- **`registerUser`**: Extract `age`, `profession`, `agePreference` from the request body. Enforce strict Mongoose validation checking during `User.create()`.
+- **`getMyProfile`**: Augment the returned JSON payload to surface `age`, `profession`, and the mapped `agePreference` correctly.
+
+#### [MODIFY] `src/controllers/user.controller.js`
+- **`updateUserProfile`**: Append `"age"`, `"profession"`, and `"agePreference"` to the internal `allowedUpdates` constant so users can dynamically tweak their preferences dynamically via the settings UI.
+- **`getAllUserProfiles`**: 
+  1. Add pagination extracting `page` and `limit` variables safely defaulting to fetching `10` users per request.
+  2. Implement `skip` and `limit` parameters on the main `User.find()` pipeline.
+  3. Merge `agePreference` bounds into the MongoDB Query: `{ age: { $gte: currentUser.agePreference.minAge, $lte: currentUser.agePreference.maxAge } }`.
+  4. Ensure robust edge-care logic if a user lacks the `agePreference` field.
+
+## Open Questions
+
+> [!WARNING]
+> What should the default behavior be for `agePreference` if a user does not supply one during registration but the app updates require it? Our plan assumes `minAge: 18, maxAge: 100` as safety fallbacks unless you want to mandate users input it during sign up.
+
+## Verification Plan
+
+### Automated Tests
+- Postman `POST /api/v1/auth/register` to verify new required fields create correctly matching users.
+- Inspect MongoDB indexes via GUI to verify `{ gender: 1, age: 1 }` exists.
+
+### Manual Verification
+- Execute `GET /api/v1/users/profiles?page=1&limit=10` using a logged in account of age 21 with bounds 18-26. 
+- Validate the feed successfully avoids 27+ year old users and successfully ignores user records where the gender does not match requirements.
