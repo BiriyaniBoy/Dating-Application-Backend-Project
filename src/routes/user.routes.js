@@ -6,7 +6,8 @@ import {
     updateUserProfile,
     getAcceptedProfiles,
     getRejectedProfiles,
-    deletePhoto
+    deletePhoto,
+    getNearbyMatches
 } from "../controllers/user.controller.js";
 
 const router = Router();
@@ -16,6 +17,9 @@ router.use(verifyJWT);
 
 // Route to get all active user profiles
 router.route("/profiles").get(getAllUserProfiles);
+
+// Route to get nearby matches based on distancePreference (Industrial Approach)
+router.route("/nearby-matches").get(getNearbyMatches);
 
 // Route to get all accepted users
 router.route("/accepted").get(getAcceptedProfiles);

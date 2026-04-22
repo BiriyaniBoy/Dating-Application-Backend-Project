@@ -36,6 +36,11 @@ const registerUser = asyncHandler(async (req, res) => {
     drinks,
     smokingHabits,
     verificationImage,
+    age,
+    profession,
+    minAge,
+    maxAge,
+    distancePreference,
   } = req.body;
 
   if ([name, email, password].some((field) => String(field).trim() === "")) {
@@ -71,6 +76,19 @@ const registerUser = asyncHandler(async (req, res) => {
     drinks,
     smokingHabits,
     verificationImage,
+    age,
+    profession,
+    agePreference: {
+      minAge: minAge || 18,
+      maxAge: maxAge || 100
+    },
+    distancePreference: distancePreference || 20,
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    location: {
+      type: "Point",
+      coordinates: [Number(longitude), Number(latitude)]
+    }
   });
 
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
@@ -274,7 +292,13 @@ const getMyProfile = asyncHandler(async (req, res) => {
     isSubscription,
     subscriptionType: isSubscription ? userData.subscriptionType : "none",
     gender: userData.gender,
-    interestedIn: userData.interestedIn
+    interestedIn: userData.interestedIn,
+    age: userData.age,
+    profession: userData.profession,
+    agePreference: userData.agePreference,
+    distancePreference: userData.distancePreference,
+    latitude: userData.latitude,
+    longitude: userData.longitude
   };
 
   // Remove sensitive fields

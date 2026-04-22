@@ -102,9 +102,35 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
         query.gender = { $in: ["male", "female", "others"] };
     }
 
+    // Add age preference range filter
+    const minAge = currentUser?.agePreference?.minAge || 18;
+    const maxAge = currentUser?.agePreference?.maxAge || 100;
+    query.age = { $gte: minAge, $lte: maxAge };
+
+    // Add distance preference filter
+    if (currentUser.latitude && currentUser.longitude) {
+        const distanceKm = currentUser.distancePreference || 20;
+        const radiusInRadians = distanceKm / 6378.1; // Earth radius in km
+        query.location = {
+            $geoWithin: {
+                $centerSphere: [
+                    [Number(currentUser.longitude), Number(currentUser.latitude)], 
+                    radiusInRadians
+                ]
+            }
+        };
+    }
+
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const users = await User.find(query)
         .select("-password -refreshToken")
         .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
         .lean();
 
     // Get interactions for the mapping
@@ -139,7 +165,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     const allowedUpdates = [
         "name", "photos", "universityName", "latitude", "longitude",
         "passions", "fitnessLevel", "drinks", "smokingHabits", "verificationImage",
-        "gender", "interestedIn"
+        "gender", "interestedIn", "age", "profession", "agePreference", "distancePreference"
     ];
 
     const updates = {};
@@ -152,6 +178,19 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             updates[key] = req.body[key];
         }
     });
+
+    // Sync GeoJSON location if lat/long are updated
+    if (updates.latitude !== undefined || updates.longitude !== undefined) {
+        const lat = updates.latitude !== undefined ? Number(updates.latitude) : req.user.latitude;
+        const lng = updates.longitude !== undefined ? Number(updates.longitude) : req.user.longitude;
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+            updates.location = {
+                type: "Point",
+                coordinates: [lng, lat]
+            };
+        }
+    }
 
     if (Object.keys(updates).length === 0) {
         throw new ApiError(400, "No fields provided for update");
@@ -248,11 +287,67 @@ const deletePhoto = asyncHandler(async (req, res) => {
     );
 });
 
+const getNearbyMatches = asyncHandler(async (req, res) => {
+    const user = req.user;
+    
+    if (!user.latitude || !user.longitude) {
+        throw new ApiError(400, "Location data missing. Please update your profile with latitude and longitude.");
+    }
+
+    const interestedIn = user.interestedIn?.toLowerCase();
+    const minAge = user.agePreference?.minAge || 18;
+    const maxAge = user.agePreference?.maxAge || 100;
+
+    // Prioritize dynamic distance query param, fallback to profile preference
+    const requestedDistance = parseInt(req.query.distance);
+    let distanceKm = user.distancePreference || 20;
+
+    if (!isNaN(requestedDistance)) {
+        if (requestedDistance < 5 || requestedDistance > 150) {
+            throw new ApiError(400, "Requested distance must be between 5km and 150km");
+        }
+        distanceKm = requestedDistance;
+    }
+
+    // Convert km to radians for $centerSphere
+    const radiusInRadians = distanceKm / 6378.1;
+
+    const query = {
+        isActive: true,
+        _id: { $ne: user._id },
+        age: { $gte: minAge, $lte: maxAge },
+        location: {
+            $geoWithin: {
+                $centerSphere: [
+                    [Number(user.longitude), Number(user.latitude)], 
+                    radiusInRadians
+                ]
+            }
+        }
+    };
+
+    if (interestedIn === "male" || interestedIn === "female") {
+        query.gender = interestedIn;
+    } else {
+        query.gender = { $in: ["male", "female", "others"] };
+    }
+
+    const matches = await User.find(query)
+        .select("name photos _id") // Lean response: name, photos, and ID only
+        .limit(100) // Return top 100 results for fast response
+        .lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, matches, "Nearby matches fetched successfully (No pagination)")
+    );
+});
+
 export { 
     getUserProfile, 
     getAllUserProfiles, 
     updateUserProfile,
     getAcceptedProfiles,
     getRejectedProfiles,
-    deletePhoto
+    deletePhoto,
+    getNearbyMatches
 };
