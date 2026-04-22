@@ -60,6 +60,12 @@ const userSchema = new Schema(
         default: 100
       }
     },
+    distancePreference: {
+      type: Number,
+      default: 20,
+      min: [5, "Minimum distance is 5km"],
+      max: [150, "Maximum distance is 150km"]
+    },
     photos: {
       type: [String],
       validate: {
@@ -73,10 +79,20 @@ const userSchema = new Schema(
       type: String,
     },
     latitude: {
-      type: String,
+      type: Number,
     },
     longitude: {
-      type: String,
+      type: Number,
+    },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+      },
     },
     passions: {
       type: [String],
@@ -110,6 +126,9 @@ const userSchema = new Schema(
 
 // Compound index for fast matchmaking queries
 userSchema.index({ gender: 1, age: 1 });
+
+// Geospatial index for proximity-based matchmaking
+userSchema.index({ location: "2dsphere" });
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
