@@ -6,8 +6,10 @@ const storage = multer.diskStorage({
     cb(null, "./public/temp");
   },
   filename: function (req, file, cb) {
-    console.log("📁 Multer saving as:", file.originalname);
-    cb(null, file.originalname);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileName = `${uniqueSuffix}-${file.originalname}`;
+    console.log("📁 Multer saving as:", fileName);
+    cb(null, fileName);
   },
 });
 
