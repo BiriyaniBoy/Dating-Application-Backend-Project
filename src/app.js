@@ -14,8 +14,8 @@ app.use(cors()); // Nuclear fix: Allow everything for now
 
 // app.use(express.json({ limit: "16kb" }));
 // app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(express.json({ limit: "10mb" })); // Increase from 16kb to 10mb
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "25mb" })); 
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
 app.use(express.static("public"));
 app.use(cookieParser());

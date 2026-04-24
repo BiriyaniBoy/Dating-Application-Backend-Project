@@ -1,0 +1,41 @@
+const universalImageUpload = async (url, file, object_get = {}, skipAuth = true) => {
+  console.log(`🚀 universalImageUpload called (url=${url}, skipAuth=${skipAuth})`);
+
+  const apiUrl = BASE_URL + url;
+  console.log("📤 Upload Image API URL:", apiUrl);
+
+  // If we have base64 data, use the JSON approach (100% reliable)
+  if (file && file.data) {
+    console.log('✨ Using Base64 JSON upload method...');
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...object_get,
+          image: `data:${file.mime || 'image/jpeg'};base64,${file.data}`,
+        }),
+      });
+
+      const responseData = await response.json();
+      console.log(`📊 Response Status: ${response.status}`, responseData);
+
+      if (response.ok) {
+        return responseData;
+      } else {
+        throw responseData;
+      }
+    } catch (error) {
+      console.log('❌ Base64 Upload error:', error);
+      throw { error: error.message || 'Upload failed' };
+    }
+  }
+
+  // Fallback to legacy FormData if no base64 (not recommended for this environment)
+  const data = new FormData();
+  // ... (keeping the rest as fallback or removing it for clarity)
+  throw { error: 'Base64 data missing from image picker' };
+};

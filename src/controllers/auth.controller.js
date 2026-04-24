@@ -168,32 +168,32 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const uploadImage = asyncHandler(async (req, res) => {
-  console.log("📸 uploadImage controller started");
-  console.log("📸 Request File:", req.file ? "Present" : "Missing");
-  console.log("📸 Request Body contains image:", req.body?.image ? "Yes (Base64)" : "No");
+  console.log("📸 [Upload] Controller started");
+  console.log("📸 [Upload] Multer File (req.file):", req.file ? `Present (${req.file.originalname})` : "Missing");
+  console.log("📸 [Upload] JSON Body image (req.body.image):", req.body?.image ? "Present (Base64)" : "Missing");
 
   let imagePath = req.file?.path;
 
-  // If file is missing but base64 is present in body
+  // If multipart file is missing, fallback to Base64 in JSON body
   if (!imagePath && req.body.image) {
-    console.log("✨ Received Base64 image, using direct Cloudinary upload...");
-    imagePath = req.body.image; // Cloudinary supports base64 strings directly
+    console.log("✨ [Upload] Received Base64 image, proceeding to Cloudinary...");
+    imagePath = req.body.image;
   }
 
   if (!imagePath) {
-    console.log("❌ No image data found in request");
-    throw new ApiError(400, "Image data is missing (expected file or base64)");
+    console.log("❌ [Upload] No image data found. Ensure you are sending 'image' field.");
+    throw new ApiError(400, "Image data is missing. Expected a file in 'image' field or a Base64 string in req.body.image");
   }
 
-  console.log("☁️ Uploading to Cloudinary...");
+  console.log("☁️ [Upload] Sending to Cloudinary...");
   const uploadedImage = await uploadOnCloudinary(imagePath);
 
   if (!uploadedImage) {
-    console.log("❌ Cloudinary upload returned null");
-    throw new ApiError(500, "Error while uploading image to Cloudinary");
+    console.log("❌ [Upload] Cloudinary upload failed.");
+    throw new ApiError(500, "Failed to upload image to Cloudinary. Check server logs for details.");
   }
 
-  console.log("✅ Cloudinary upload success:", uploadedImage.url);
+  console.log("✅ [Upload] Success:", uploadedImage.url);
   return res
     .status(200)
     .json(

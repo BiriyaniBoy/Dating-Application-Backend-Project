@@ -16,14 +16,23 @@ const uploadOnCloudinary = async (localFilePath) => {
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
     });
-    // File has been uploaded successfully
-    if (fs.existsSync(localFilePath)) {
+
+    // Only attempt to delete if it's a local file path (not a Base64 string)
+    // Base64 strings are long and don't usually point to valid file paths
+    const isLocalFile = !localFilePath.startsWith("data:") && fs.existsSync(localFilePath);
+    
+    if (isLocalFile) {
         fs.unlinkSync(localFilePath);
+        console.log("🗑️ Local temporary file deleted");
     }
+
     return response;
   } catch (error) {
-    console.error("Cloudinary Upload Error:", error.message);
-    if (localFilePath && fs.existsSync(localFilePath)) {
+    console.error("❌ Cloudinary Upload Error Details:", error);
+    
+    // Cleanup if it was a local file that failed to upload
+    const isLocalFile = localFilePath && !localFilePath.startsWith("data:") && fs.existsSync(localFilePath);
+    if (isLocalFile) {
         fs.unlinkSync(localFilePath); 
     }
     return null;
