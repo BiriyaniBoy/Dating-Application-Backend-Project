@@ -6,6 +6,9 @@ import {
     updateUserProfile,
     getAcceptedProfiles,
     getRejectedProfiles,
+    getWhoAcceptedMe,
+    getWhoRejectedMe,
+    getMatches,
     deletePhoto,
     getNearbyMatches
 } from "../controllers/user.controller.js";
@@ -26,6 +29,15 @@ router.route("/accepted").get(getAcceptedProfiles);
 
 // Route to get all rejected users
 router.route("/rejected").get(getRejectedProfiles);
+
+// Route to get users who accepted me
+router.route("/who-accepted-me").get(getWhoAcceptedMe);
+
+// Route to get users who rejected me
+router.route("/who-rejected-me").get(getWhoRejectedMe);
+
+// Route to get matches (mutual accepts)
+router.route("/matches").get(getMatches);
 
 // Route to update own profile using PUT (Full Replacement)
 router.route("/edit-profile").put(updateUserProfile);
