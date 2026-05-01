@@ -84,34 +84,48 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
     const currentUserId = req.user._id;
     const currentUser = req.user;
 
-    // Normalize what the current user is interested in
-    const interestedIn = currentUser?.interestedIn?.toLowerCase();
+    // 1. Identify users we've already interacted with (so we don't show them again in feed)
+    // - Always exclude profiles we accepted.
+    // - Only exclude profiles we rejected if the rejection was within the last 1 month.
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-    // Explicitly build the query object to prevent Mongoose from dropping undefined fields
-    const query = {
+    const myInteractions = await Interaction.find({ 
+        actor: currentUserId,
+        $or: [
+            { action: "accept" },
+            { action: "reject", updatedAt: { $gte: oneMonthAgo } }
+        ]
+    }).distinct("target");
+
+    // 2. Identify users who accepted the current user (excluding those we already interacted with)
+    const acceptedMeIds = await Interaction.find({ 
+        target: currentUserId, 
+        action: "accept",
+        actor: { $nin: myInteractions } 
+    }).distinct("actor");
+
+    // 3. Build Normal Query
+    const interestedIn = currentUser?.interestedIn?.toLowerCase();
+    const normalQuery = {
         isActive: true,
-        _id: { $ne: currentUserId }
+        _id: { $ne: currentUserId, $nin: [...myInteractions, ...acceptedMeIds] }
     };
 
     if (interestedIn === "male" || interestedIn === "female") {
-        // Strict Match: Only show this precise gender
-        query.gender = interestedIn;
+        normalQuery.gender = interestedIn;
     } else {
-        // "others" or undefined (like for old grandfathered accounts)
-        // Show all profiles that have a valid configured gender
-        query.gender = { $in: ["male", "female", "others"] };
+        normalQuery.gender = { $in: ["male", "female", "others"] };
     }
 
-    // Add age preference range filter
     const minAge = currentUser?.agePreference?.minAge || 18;
     const maxAge = currentUser?.agePreference?.maxAge || 100;
-    query.age = { $gte: minAge, $lte: maxAge };
+    normalQuery.age = { $gte: minAge, $lte: maxAge };
 
-    // Add distance preference filter
     if (currentUser.latitude && currentUser.longitude) {
         const distanceKm = currentUser.distancePreference || 20;
-        const radiusInRadians = distanceKm / 6378.1; // Earth radius in km
-        query.location = {
+        const radiusInRadians = distanceKm / 6378.1; 
+        normalQuery.location = {
             $geoWithin: {
                 $centerSphere: [
                     [Number(currentUser.longitude), Number(currentUser.latitude)], 
@@ -121,39 +135,75 @@ const getAllUserProfiles = asyncHandler(async (req, res) => {
         };
     }
 
-    // Pagination
+    // 4. Pagination Math for "Fill Up" mix (Pattern: Normal, Normal, Accepted...)
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const users = await User.find(query)
-        .select("-password -refreshToken")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean();
+    const totalNormal = await User.countDocuments(normalQuery);
+    const totalAccepted = acceptedMeIds.length;
 
-    // Get interactions for the mapping
-    const interactions = await Interaction.find({ actor: currentUserId }).lean();
-    const interactionMap = {};
-    interactions.forEach(i => {
-        interactionMap[i.target.toString()] = i.action;
-    });
+    const getIdealAccepted = (n) => Math.floor(n / 3);
+    const getActualAcceptedConsumed = (n) => Math.min(totalAccepted, getIdealAccepted(n));
+    const getActualNormalConsumed = (n) => Math.min(totalNormal, n - getActualAcceptedConsumed(n));
 
-    // Attach subscription status + interaction status to each profile
-    const usersWithStatus = users.map(user => {
-        const action = interactionMap[user._id.toString()];
+    const skipAccepted = getActualAcceptedConsumed(skip);
+    const limitAccepted = getActualAcceptedConsumed(skip + limit) - skipAccepted;
+
+    const skipNormal = getActualNormalConsumed(skip);
+    const limitNormal = getActualNormalConsumed(skip + limit) - skipNormal;
+
+    // 5. Fetch Data
+    const acceptedUsersPromise = limitAccepted > 0 
+        ? User.find({ _id: { $in: acceptedMeIds }, isActive: true })
+            .select("-password -refreshToken").sort({ createdAt: -1 }).skip(skipAccepted).limit(limitAccepted).lean()
+        : Promise.resolve([]);
+
+    const normalUsersPromise = limitNormal > 0
+        ? User.find(normalQuery)
+            .select("-password -refreshToken").sort({ createdAt: -1 }).skip(skipNormal).limit(limitNormal).lean()
+        : Promise.resolve([]);
+
+    const [acceptedUsers, normalUsers] = await Promise.all([acceptedUsersPromise, normalUsersPromise]);
+
+    // 6. Interleave perfectly according to "Fill Up" rules
+    const mixedProfiles = [];
+    let normalIndex = 0;
+    let acceptedIndex = 0;
+
+    for (let i = skip; i < skip + limit; i++) {
+        if (normalIndex >= normalUsers.length && acceptedIndex >= acceptedUsers.length) break;
+
+        const isIdealAccepted = (i % 3 === 2); // 3rd index means i=2, i=5, i=8 (0-indexed)
+        
+        if (isIdealAccepted) {
+            if (acceptedIndex < acceptedUsers.length) {
+                mixedProfiles.push({ ...acceptedUsers[acceptedIndex++], isAcceptedMe: true });
+            } else if (normalIndex < normalUsers.length) {
+                mixedProfiles.push(normalUsers[normalIndex++]);
+            }
+        } else {
+            if (normalIndex < normalUsers.length) {
+                mixedProfiles.push(normalUsers[normalIndex++]);
+            } else if (acceptedIndex < acceptedUsers.length) {
+                mixedProfiles.push({ ...acceptedUsers[acceptedIndex++], isAcceptedMe: true });
+            }
+        }
+    }
+
+    // Attach formatting
+    const usersWithStatus = mixedProfiles.map(user => {
         const subDecorated = mapSubscriptionStatus(user);
         return {
             ...subDecorated,
-            interactionStatus: action || null,
-            isAccepted: action === "accept",
-            isRejected: action === "reject"
+            interactionStatus: null, // Always null in feed because we excluded 'myInteractions'
+            isAccepted: false,
+            isRejected: false
         };
     });
 
     return res.status(200).json(
-        new ApiResponse(200, usersWithStatus, "All user profiles fetched successfully")
+        new ApiResponse(200, usersWithStatus, "Mixed user profiles fetched successfully")
     );
 });
 
@@ -247,6 +297,69 @@ const getRejectedProfiles = asyncHandler(async (req, res) => {
     );
 });
 
+const getWhoAcceptedMe = asyncHandler(async (req, res) => {
+    const currentUserId = req.user._id;
+
+    const interactions = await Interaction.find({ target: currentUserId, action: "accept" }).lean();
+    const actorIds = interactions.map(i => i.actor);
+
+    const users = await User.find({
+        _id: { $in: actorIds },
+        isActive: true
+    }).select("-password -refreshToken").lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            count: users.length,
+            users: users.map(mapSubscriptionStatus)
+        }, "Users who accepted your profile fetched successfully")
+    );
+});
+
+const getWhoRejectedMe = asyncHandler(async (req, res) => {
+    const currentUserId = req.user._id;
+
+    const interactions = await Interaction.find({ target: currentUserId, action: "reject" }).lean();
+    const actorIds = interactions.map(i => i.actor);
+
+    const users = await User.find({
+        _id: { $in: actorIds },
+        isActive: true
+    }).select("-password -refreshToken").lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            count: users.length,
+            users: users.map(mapSubscriptionStatus)
+        }, "Users who rejected your profile fetched successfully")
+    );
+});
+
+const getMatches = asyncHandler(async (req, res) => {
+    const currentUserId = req.user._id;
+
+    // 1. Get users I have accepted
+    const myLikes = await Interaction.find({ actor: currentUserId, action: "accept" }).distinct("target");
+
+    // 2. Among those users, find who has accepted me
+    const mutualLikes = await Interaction.find({ 
+        actor: { $in: myLikes }, 
+        target: currentUserId, 
+        action: "accept" 
+    }).distinct("actor");
+
+    // 3. Fetch user profiles
+    const matches = await User.find({
+        _id: { $in: mutualLikes },
+        isActive: true
+    }).select("-password -refreshToken").lean();
+
+    return res.status(200).json(
+        new ApiResponse(200, matches.map(mapSubscriptionStatus), "Matches fetched successfully")
+    );
+});
+
+
 const deletePhoto = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const { photoUrl } = req.body;
@@ -333,7 +446,7 @@ const getNearbyMatches = asyncHandler(async (req, res) => {
     }
 
     const matches = await User.find(query)
-        .select("name photos _id") // Lean response: name, photos, and ID only
+        .select("name photos _id latitude longitude location") // Included location data for map rendering
         .limit(100) // Return top 100 results for fast response
         .lean();
 
@@ -348,6 +461,9 @@ export {
     updateUserProfile,
     getAcceptedProfiles,
     getRejectedProfiles,
+    getWhoAcceptedMe,
+    getWhoRejectedMe,
+    getMatches,
     deletePhoto,
     getNearbyMatches
 };
