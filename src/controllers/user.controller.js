@@ -446,7 +446,7 @@ const getNearbyMatches = asyncHandler(async (req, res) => {
     }
 
     const matches = await User.find(query)
-        .select("name photos _id") // Lean response: name, photos, and ID only
+        .select("name photos _id latitude longitude location") // Included location data for map rendering
         .limit(100) // Return top 100 results for fast response
         .lean();
 
