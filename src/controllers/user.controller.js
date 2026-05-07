@@ -300,11 +300,20 @@ const getRejectedProfiles = asyncHandler(async (req, res) => {
 const getWhoAcceptedMe = asyncHandler(async (req, res) => {
     const currentUserId = req.user._id;
 
-    const interactions = await Interaction.find({ target: currentUserId, action: "accept" }).lean();
-    const actorIds = interactions.map(i => i.actor);
+    // 1. Find all interactions where the current user is the target and action is 'accept'
+    // (These are people who liked me)
+    const receivedLikes = await Interaction.find({ target: currentUserId, action: "accept" }).lean();
+    const potentialActorIds = receivedLikes.map(i => i.actor);
+
+    // 2. Find all interactions where the current user is the actor
+    // (These are people I have already liked or rejected)
+    const myInteractions = await Interaction.find({ actor: currentUserId }).distinct("target");
+
+    // 3. Filter actors to only include those I haven't interacted with yet
+    const pendingLikesIds = potentialActorIds.filter(id => !myInteractions.some(interactedId => interactedId.equals(id)));
 
     const users = await User.find({
-        _id: { $in: actorIds },
+        _id: { $in: pendingLikesIds },
         isActive: true
     }).select("-password -refreshToken").lean();
 
@@ -312,7 +321,7 @@ const getWhoAcceptedMe = asyncHandler(async (req, res) => {
         new ApiResponse(200, {
             count: users.length,
             users: users.map(mapSubscriptionStatus)
-        }, "Users who accepted your profile fetched successfully")
+        }, "Users who accepted your profile but you haven't interacted with yet fetched successfully")
     );
 });
 
