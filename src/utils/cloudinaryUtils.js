@@ -39,9 +39,9 @@ const uploadOnCloudinary = async (localFilePath) => {
   }
 };
 
-const deleteFromCloudinary = async (imageUrl) => {
+const deleteFromCloudinary = async (mediaUrl, resourceType = "image") => {
   try {
-    if (!imageUrl) return null;
+    if (!mediaUrl) return null;
 
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -50,12 +50,14 @@ const deleteFromCloudinary = async (imageUrl) => {
     });
 
     // Extract the public_id from the full Cloudinary URL
-    // URL format: https://res.cloudinary.com/<cloud>/image/upload/v<version>/<public_id>.<ext>
-    const urlParts = imageUrl.split("/");
+    // URL format: https://res.cloudinary.com/<cloud>/<resource_type>/upload/v<version>/<public_id>.<ext>
+    const urlParts = mediaUrl.split("/");
     const fileWithExt = urlParts[urlParts.length - 1];          // e.g. "abc123.jpg"
     const publicId = fileWithExt.split(".")[0];                 // e.g. "abc123"
 
-    const response = await cloudinary.uploader.destroy(publicId);
+    const response = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType
+    });
     return response; // { result: 'ok' } on success
   } catch (error) {
     console.error("Cloudinary Delete Error:", error.message);

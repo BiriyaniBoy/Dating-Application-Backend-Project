@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { uploadOnCloudinary } from "../utils/cloudinaryUtils.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinaryUtils.js";
 import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -202,23 +202,97 @@ const uploadImage = asyncHandler(async (req, res) => {
 });
 
 const uploadVideo = asyncHandler(async (req, res) => {
+  console.log("🎥 [Upload] Video Controller started");
   const videoLocalPath = req.file?.path;
 
   if (!videoLocalPath) {
+    console.log("❌ [Upload] Video file is missing.");
     throw new ApiError(400, "Video file is missing");
   }
 
+  console.log("☁️ [Upload] Sending Video to Cloudinary...");
   const uploadedVideo = await uploadOnCloudinary(videoLocalPath);
 
   if (!uploadedVideo) {
+    console.log("❌ [Upload] Cloudinary video upload failed.");
     throw new ApiError(500, "Error while uploading video to Cloudinary");
   }
 
+  console.log("✅ [Upload] Video Success:", uploadedVideo.url);
   return res
     .status(200)
     .json(
       new ApiResponse(200, { url: uploadedVideo.url }, "Video uploaded successfully")
     );
+});
+
+const uploadVoice = asyncHandler(async (req, res) => {
+  console.log("🎤 [Upload] Voice Controller started");
+  const voiceLocalPath = req.file?.path;
+
+  if (!voiceLocalPath) {
+    console.log("❌ [Upload] Voice file is missing.");
+    throw new ApiError(400, "Voice file is missing");
+  }
+
+  console.log("☁️ [Upload] Sending Voice to Cloudinary...");
+  const uploadedVoice = await uploadOnCloudinary(voiceLocalPath);
+
+  if (!uploadedVoice) {
+    console.log("❌ [Upload] Cloudinary voice upload failed.");
+    throw new ApiError(500, "Error while uploading voice to Cloudinary");
+  }
+
+  console.log("✅ [Upload] Voice Success:", uploadedVoice.url);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { url: uploadedVoice.url }, "Voice uploaded successfully")
+    );
+});
+
+const deleteImage = asyncHandler(async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    throw new ApiError(400, "Image URL is required for deletion");
+  }
+
+  const result = await deleteFromCloudinary(url, "image");
+  if (!result) {
+    throw new ApiError(500, "Failed to delete image from Cloudinary");
+  }
+
+  return res.status(200).json(new ApiResponse(200, {}, "Image deleted successfully"));
+});
+
+const deleteVideo = asyncHandler(async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    throw new ApiError(400, "Video URL is required for deletion");
+  }
+
+  // Cloudinary treats both video and audio as "video" resource type
+  const result = await deleteFromCloudinary(url, "video");
+  if (!result) {
+    throw new ApiError(500, "Failed to delete video from Cloudinary");
+  }
+
+  return res.status(200).json(new ApiResponse(200, {}, "Video deleted successfully"));
+});
+
+const deleteVoice = asyncHandler(async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    throw new ApiError(400, "Voice URL is required for deletion");
+  }
+
+  // Cloudinary treats both video and audio as "video" resource type
+  const result = await deleteFromCloudinary(url, "video");
+  if (!result) {
+    throw new ApiError(500, "Failed to delete voice from Cloudinary");
+  }
+
+  return res.status(200).json(new ApiResponse(200, {}, "Voice deleted successfully"));
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -324,4 +398,4 @@ const getMyProfile = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, profileData, "User profile fetched successfully"));
 });
 
-export { registerUser, loginUser, uploadImage, uploadVideo, logoutUser, refreshAccessToken, getMyProfile };
+export { registerUser, loginUser, uploadImage, uploadVideo, uploadVoice, deleteImage, deleteVideo, deleteVoice, logoutUser, refreshAccessToken, getMyProfile };
