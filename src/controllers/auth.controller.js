@@ -203,15 +203,24 @@ const uploadImage = asyncHandler(async (req, res) => {
 
 const uploadVideo = asyncHandler(async (req, res) => {
   console.log("🎥 [Upload] Video Controller started");
-  const videoLocalPath = req.file?.path;
+  console.log("🎥 [Upload] Multer File (req.file):", req.file ? `Present (${req.file.originalname})` : "Missing");
+  console.log("🎥 [Upload] JSON Body video (req.body.video):", req.body?.video ? "Present (Base64)" : "Missing");
 
-  if (!videoLocalPath) {
-    console.log("❌ [Upload] Video file is missing.");
-    throw new ApiError(400, "Video file is missing");
+  let videoPath = req.file?.path;
+
+  // If multipart file is missing, fallback to Base64 in JSON body
+  if (!videoPath && req.body.video) {
+    console.log("✨ [Upload] Received Base64 video, proceeding to Cloudinary...");
+    videoPath = req.body.video;
+  }
+
+  if (!videoPath) {
+    console.log("❌ [Upload] No video data found.");
+    throw new ApiError(400, "Video data is missing. Expected a file in 'video' field or a Base64 string in req.body.video");
   }
 
   console.log("☁️ [Upload] Sending Video to Cloudinary...");
-  const uploadedVideo = await uploadOnCloudinary(videoLocalPath);
+  const uploadedVideo = await uploadOnCloudinary(videoPath);
 
   if (!uploadedVideo) {
     console.log("❌ [Upload] Cloudinary video upload failed.");
@@ -228,15 +237,24 @@ const uploadVideo = asyncHandler(async (req, res) => {
 
 const uploadVoice = asyncHandler(async (req, res) => {
   console.log("🎤 [Upload] Voice Controller started");
-  const voiceLocalPath = req.file?.path;
+  console.log("🎤 [Upload] Multer File (req.file):", req.file ? `Present (${req.file.originalname})` : "Missing");
+  console.log("🎤 [Upload] JSON Body voice (req.body.voice):", req.body?.voice ? "Present (Base64)" : "Missing");
 
-  if (!voiceLocalPath) {
-    console.log("❌ [Upload] Voice file is missing.");
-    throw new ApiError(400, "Voice file is missing");
+  let voicePath = req.file?.path;
+
+  // If multipart file is missing, fallback to Base64 in JSON body
+  if (!voicePath && req.body.voice) {
+    console.log("✨ [Upload] Received Base64 voice, proceeding to Cloudinary...");
+    voicePath = req.body.voice;
+  }
+
+  if (!voicePath) {
+    console.log("❌ [Upload] No voice data found.");
+    throw new ApiError(400, "Voice data is missing. Expected a file in 'voice' field or a Base64 string in req.body.voice");
   }
 
   console.log("☁️ [Upload] Sending Voice to Cloudinary...");
-  const uploadedVoice = await uploadOnCloudinary(voiceLocalPath);
+  const uploadedVoice = await uploadOnCloudinary(voicePath);
 
   if (!uploadedVoice) {
     console.log("❌ [Upload] Cloudinary voice upload failed.");
